@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <title>接苹果</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      background: #f0f8ff;
+      font-family: sans-serif;
+      margin: 0;
+      padding: 20px;
+    }
+    #info {
+      margin: 10px;
+      font-size: 20px;
+    }
+    canvas {
+      background: #87ceeb;
+      border: 2px solid #333;
+      display: block;
+    }
+    button {
+      padding: 8px 16px;
+      font-size: 16px;
+      margin-top: 10px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <div id="info">
+    分数：<span id="score">0</span>
+    生命：<span id="lives">3</span>
+  </div>
+
+  <canvas id="game" width="400" height="600"></canvas>
+  <button id="restart">重新开始</button>
+
+  <script>
+    const canvas = document.getElementById('game');
+    const ctx = canvas.getContext('2d');
+    const scoreSpan = document.getElementById('score');
+    const livesSpan = document.getElementById('lives');
+    const restartBtn = document.getElementById('restart');
+
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const basket = {
+      w: 80,
+      h: 20,
+      x: W / 2 - 40,
+      y: H - 30,
+      speed: 7
+    };
+
+    let apples = [];
+    let score = 0;
+    let lives = 3;
+    let running = true;
+    let keys = {};
+    let frame = 0;
+    let dropSpeed = 2;
+
+    function reset() {
+      score = 0;
+      lives = 3;
+      apples = [];
+      running = true;
+      frame = 0;
+      dropSpeed = 2;
+      basket.x = W / 2 - basket.w / 2;
+      scoreSpan.textContent = score;
+      livesSpan.textContent = lives;
+    }
+
+    function spawnApple() {
+      const radius = 12;
+      const x = Math.random() * (W - radius * 2) + radius;
+      apples.push({
+        x: x,
+        y: -radius,
+        r: radius,
+        speed: dropSpeed + Math.random() * 1.5
+      });
+    }
+
+    function update() {
+      if (!running) return;
+
+      frame++;
+
+      // 每 60 帧生成一个苹果
+      if (frame % 60 === 0) {
+        spawnApple();
+      }
+
+      // 每 300 帧增加一点难度
+      if (frame % 300 === 0) {
+        dropSpeed += 0.5;
+      }
+
+      // 篮子左右移动
+      if (keys['ArrowLeft'] && basket.x > 0) {
+        basket.x -= basket.speed;
+      }
+      if (keys['ArrowRight'] && basket.x + basket.w < W) {
+        basket.x += basket.speed;
+      }
+
+      // 苹果下落、碰撞、漏接
+      for (let i = apples.length - 1; i >= 0; i--) {
+        const a = apples[i];
+        a.y += a.speed;
+
+        // 接到苹果
+        if (
+          a.y + a.r >= basket.y &&
+          a.y - a.r <= basket.y + basket.h &&
+          a.x >= basket.x &&
+          a.x <= basket.x + basket.w
+        ) {
+          apples.splice(i, 1);
+          score++;
+          scoreSpan.textContent = score;
+          continue;
+        }
+
+        // 苹果掉出屏幕
+        if (a.y - a.r > H) {
+          apples.splice(i, 1);
+          lives--;
+          livesSpan.textContent = lives;
+
+          if (lives <= 0) {
+            running = false;
+          }
+        }
+      }
+    }
+
+    function draw() {
+      ctx.clearRect(0, 0, W, H);
+
+      // 画篮子
+      ctx.fillStyle = '#8B4513';
+      ctx.fillRect(basket.x, basket.y, basket.w, basket.h);
+
+      // 画苹果
+      for (const a of apples) {
+        ctx.fillStyle = '#e74c3c';
+        ctx.beginPath();
+        ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 叶子
+        ctx.fillStyle = '#2ecc71';
+        ctx.beginPath();
+        ctx.ellipse(a.x + 5, a.y - a.r, 6, 3, 0, 0, Math.PI * 2);
+        ctx.fill();
+      }
+
+      // 游戏结束遮罩
+      if (!running) {
+        ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+        ctx.fillRect(0, 0, W, H);
+
+        ctx.fillStyle = 'white';
+        ctx.font = '40px sans-serif';
+        ctx.textAlign = 'center';
+        ctx.fillText('游戏结束', W / 2, H / 2 - 20);
+
+        ctx.font = '24px sans-serif';
+        ctx.fillText('得分：' + score, W / 2, H / 2 + 30);
+      }
+    }
+
+    function loop() {
+      update();
+      draw();
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('keydown', function (e) {
+      keys[e.key] = true;
+    });
+
+    window.addEventListener('keyup', function (e) {
+      keys[e.key] = false;
+    });
+
+    restartBtn.addEventListener('click', reset);
+
+    reset();
+    loop();
+  </script>
+</body>
+</html>
