@@ -2,6 +2,8 @@
 <html lang="zh-CN">
 <head>
   <meta charset="UTF-8">
+  <!-- 加这行是为了让手机端显示比例正常 -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>接苹果</title>
   <style>
     body {
@@ -12,6 +14,10 @@
       font-family: sans-serif;
       margin: 0;
       padding: 20px;
+      /* 禁止手机上长按选择文字或缩放 */
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
     }
     #info {
       margin: 10px;
@@ -21,22 +27,51 @@
       background: #87ceeb;
       border: 2px solid #333;
       display: block;
+      max-width: 100%; /* 让画布在手机屏幕上不溢出 */
+      height: auto;
     }
-    button {
+    .buttons {
+      margin-top: 15px;
+      display: flex;
+      gap: 20px;
+    }
+    /* 手机控制按钮样式 */
+    .ctrl-btn {
+      font-size: 28px;
+      padding: 15px 40px;
+      background: #fff;
+      border: 2px solid #333;
+      border-radius: 10px;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      box-shadow: 0 4px 0 #ccc;
+    }
+    .ctrl-btn:active {
+      box-shadow: 0 0px 0 #ccc;
+      transform: translateY(4px);
+    }
+    #restart {
       padding: 8px 16px;
       font-size: 16px;
-      margin-top: 10px;
+      margin-top: 15px;
       cursor: pointer;
     }
   </style>
 </head>
 <body>
   <div id="info">
-    分数：<span id="score">0</span>
-    生命：<span id="lives">3</span>
+    分数：<span id="score">0</span> &nbsp;&nbsp; 生命：<span id="lives">3</span>
   </div>
 
   <canvas id="game" width="400" height="600"></canvas>
+
+  <!-- 手机/电脑通用控制按钮 -->
+  <div class="buttons">
+    <button class="ctrl-btn" id="leftBtn">←</button>
+    <button class="ctrl-btn" id="rightBtn">→</button>
+  </div>
+
   <button id="restart">重新开始</button>
 
   <script>
@@ -45,6 +80,8 @@
     const scoreSpan = document.getElementById('score');
     const livesSpan = document.getElementById('lives');
     const restartBtn = document.getElementById('restart');
+    const leftBtn = document.getElementById('leftBtn');
+    const rightBtn = document.getElementById('rightBtn');
 
     const W = canvas.width;
     const H = canvas.height;
@@ -54,7 +91,7 @@
       h: 20,
       x: W / 2 - 40,
       y: H - 30,
-      speed: 15
+      speed: 15 // 已经帮你调快了，很跟手
     };
 
     let apples = [];
@@ -93,17 +130,15 @@
 
       frame++;
 
-      // 每 60 帧生成一个苹果
       if (frame % 60 === 0) {
         spawnApple();
       }
 
-      // 每 300 帧增加一点难度
       if (frame % 300 === 0) {
         dropSpeed += 0.5;
       }
 
-      // 篮子左右移动
+      // 移动逻辑（同时支持键盘和按钮）
       if (keys['ArrowLeft'] && basket.x > 0) {
         basket.x -= basket.speed;
       }
@@ -111,12 +146,10 @@
         basket.x += basket.speed;
       }
 
-      // 苹果下落、碰撞、漏接
       for (let i = apples.length - 1; i >= 0; i--) {
         const a = apples[i];
         a.y += a.speed;
 
-        // 接到苹果
         if (
           a.y + a.r >= basket.y &&
           a.y - a.r <= basket.y + basket.h &&
@@ -129,7 +162,6 @@
           continue;
         }
 
-        // 苹果掉出屏幕
         if (a.y - a.r > H) {
           apples.splice(i, 1);
           lives--;
@@ -145,25 +177,21 @@
     function draw() {
       ctx.clearRect(0, 0, W, H);
 
-      // 画篮子
       ctx.fillStyle = '#8B4513';
       ctx.fillRect(basket.x, basket.y, basket.w, basket.h);
 
-      // 画苹果
       for (const a of apples) {
         ctx.fillStyle = '#e74c3c';
         ctx.beginPath();
         ctx.arc(a.x, a.y, a.r, 0, Math.PI * 2);
         ctx.fill();
 
-        // 叶子
         ctx.fillStyle = '#2ecc71';
         ctx.beginPath();
         ctx.ellipse(a.x + 5, a.y - a.r, 6, 3, 0, 0, Math.PI * 2);
         ctx.fill();
       }
 
-      // 游戏结束遮罩
       if (!running) {
         ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
         ctx.fillRect(0, 0, W, H);
@@ -184,6 +212,7 @@
       requestAnimationFrame(loop);
     }
 
+    // 键盘控制
     window.addEventListener('keydown', function (e) {
       keys[e.key] = true;
     });
@@ -191,6 +220,26 @@
     window.addEventListener('keyup', function (e) {
       keys[e.key] = false;
     });
+
+    // 按钮控制逻辑（支持鼠标和手机触屏）
+    function bindHold(btn, key) {
+      // 手机触屏
+      btn.addEventListener('touchstart', function(e) {
+        e.preventDefault();
+        keys[key] = true;
+      });
+      btn.addEventListener('touchend', function(e) {
+        e.preventDefault();
+        keys[key] = false;
+      });
+      // 电脑鼠标
+      btn.addEventListener('mousedown', function() { keys[key] = true; });
+      btn.addEventListener('mouseup', function() { keys[key] = false; });
+      btn.addEventListener('mouseleave', function() { keys[key] = false; });
+    }
+
+    bindHold(leftBtn, 'ArrowLeft');
+    bindHold(rightBtn, 'ArrowRight');
 
     restartBtn.addEventListener('click', reset);
 
